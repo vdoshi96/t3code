@@ -527,7 +527,7 @@ const buildAppUnderTest = (options?: {
         })
       : VcsStatusBroadcaster.layer.pipe(Layer.provide(gitWorkflowLayer));
 
-    const servedRoutesLayer = HttpRouter.serve(makeRoutesLayer, {
+    const servedRoutesBaseLayer = HttpRouter.serve(makeRoutesLayer, {
       disableListenLog: true,
       disableLogger: true,
     }).pipe(
@@ -734,6 +734,9 @@ const buildAppUnderTest = (options?: {
           ...options?.layers?.checkpointDiffQuery,
         }),
       ),
+    );
+
+    const servedRoutesLayer = servedRoutesBaseLayer.pipe(
       Layer.provide(OrchestrationV2UnavailableTestLayer),
     );
 
