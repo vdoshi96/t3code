@@ -1,5 +1,4 @@
 import type {
-  ApprovalRequestId,
   EnvironmentId,
   ModelSelection,
   PreviewAnnotationPayload,
@@ -10,7 +9,8 @@ import type {
   ScopedThreadRef,
   ServerProvider,
   ThreadId,
-  TurnId,
+  RunId,
+  RuntimeRequestId,
 } from "@t3tools/contracts";
 import {
   ProviderDriverKind,
@@ -466,13 +466,13 @@ export interface ChatComposerProps {
   activePendingIsResponding: boolean;
   activePendingDraftAnswers: Record<string, PendingUserInputDraftAnswer>;
   activePendingQuestionIndex: number;
-  respondingRequestIds: ApprovalRequestId[];
+  respondingRequestIds: RuntimeRequestId[];
 
   // Plan
   showPlanFollowUpPrompt: boolean;
   activeProposedPlan: Thread["proposedPlans"][number] | null;
-  activePlan: { turnId?: TurnId } | null;
-  sidebarProposedPlan: { turnId?: TurnId } | null;
+  activePlan: { runId?: RunId | null } | null;
+  sidebarProposedPlan: { runId?: RunId | null } | null;
   planSidebarLabel: string;
   planSidebarOpen: boolean;
 
@@ -487,7 +487,7 @@ export interface ChatComposerProps {
   activeThreadModelSelection: ModelSelection | null | undefined;
 
   // Context window
-  activeThreadActivities: Thread["activities"] | undefined;
+  activeThreadWorkEntries: Thread["workEntries"] | undefined;
 
   // Misc
   resolvedTheme: "light" | "dark";
@@ -512,7 +512,7 @@ export interface ChatComposerProps {
   onInterrupt: () => void;
   onImplementPlanInNewThread: () => void;
   onRespondToApproval: (
-    requestId: ApprovalRequestId,
+    requestId: RuntimeRequestId,
     decision: ProviderApprovalDecision,
   ) => Promise<unknown>;
   onSelectActivePendingUserInputOption: (questionId: string, optionLabel: string) => void;
@@ -581,7 +581,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     providerStatuses,
     activeProjectDefaultModelSelection,
     activeThreadModelSelection,
-    activeThreadActivities,
+    activeThreadWorkEntries,
     resolvedTheme,
     settings,
     keybindings,
@@ -671,7 +671,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   );
   const selectedProviderByThreadId = composerDraft.activeProvider ?? null;
   const threadProvider =
-    activeThread?.session?.providerInstanceId ??
+    activeThread?.runtime?.providerInstanceId ??
     activeThreadModelSelection?.instanceId ??
     activeProjectDefaultModelSelection?.instanceId ??
     null;
@@ -687,7 +687,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const lockedContinuationGroupKey = useMemo((): string | null => {
     if (!lockedProvider || !activeThread) return null;
     const lockedInstanceId =
-      activeThread.session?.providerInstanceId ?? activeThreadModelSelection?.instanceId;
+      activeThread.runtime?.providerInstanceId ?? activeThreadModelSelection?.instanceId;
     if (!lockedInstanceId) return null;
     return (
       providerInstanceEntries.find((entry) => entry.instanceId === lockedInstanceId)
@@ -713,7 +713,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const selectedInstanceId = useMemo<ProviderInstanceId>(() => {
     const candidates: Array<string | null | undefined> = [
       composerDraft.activeProvider,
-      activeThread?.session?.providerInstanceId,
+      activeThread?.runtime?.providerInstanceId,
       activeThreadModelSelection?.instanceId,
       activeProjectDefaultModelSelection?.instanceId,
     ];
@@ -755,7 +755,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     );
   }, [
     activeProjectDefaultModelSelection?.instanceId,
-    activeThread?.session?.providerInstanceId,
+    activeThread?.runtime?.providerInstanceId,
     activeThreadModelSelection?.instanceId,
     composerDraft.activeProvider,
     explicitSelectedInstanceId,
@@ -850,8 +850,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // Context window
   // ------------------------------------------------------------------
   const activeContextWindow = useMemo(
-    () => deriveLatestContextWindowSnapshot(activeThreadActivities ?? []),
-    [activeThreadActivities],
+    () => deriveLatestContextWindowSnapshot(activeThreadWorkEntries ?? []),
+    [activeThreadWorkEntries],
   );
   const activeThreadProviderDisplayName = useMemo(() => {
     if (!activeThreadModelSelection) return null;
@@ -2143,6 +2143,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 <ComposerPendingApprovalActions
                   requestId={activePendingApproval.requestId}
                   isResponding={respondingRequestIds.includes(activePendingApproval.requestId)}
+                  canRespond={activePendingApproval.responseCapability === "live"}
                   onRespondToApproval={onRespondToApproval}
                 />
               </div>
@@ -2472,6 +2473,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               <ComposerPendingApprovalActions
                 requestId={activePendingApproval.requestId}
                 isResponding={respondingRequestIds.includes(activePendingApproval.requestId)}
+                canRespond={activePendingApproval.responseCapability === "live"}
                 onRespondToApproval={onRespondToApproval}
               />
             </div>

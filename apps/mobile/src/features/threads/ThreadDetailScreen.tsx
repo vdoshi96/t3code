@@ -1,12 +1,12 @@
 import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type {
-  ApprovalRequestId,
   EnvironmentId,
   ModelSelection,
-  OrchestrationThreadShell,
   ProviderApprovalDecision,
   ProviderInteractionMode,
   RuntimeMode,
+  RuntimeRequestId,
   ServerConfig as T3ServerConfig,
   ThreadId,
 } from "@t3tools/contracts";
@@ -43,7 +43,7 @@ import { ThreadFeed } from "./ThreadFeed";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 
 export interface ThreadDetailScreenProps {
-  readonly selectedThread: OrchestrationThreadShell;
+  readonly selectedThread: EnvironmentThreadShell;
   readonly contentPresentation: ThreadContentPresentation;
   readonly screenTone: StatusTone;
   readonly connectionError: string | null;
@@ -51,11 +51,11 @@ export interface ThreadDetailScreenProps {
   readonly selectedThreadFeed: ReadonlyArray<ThreadFeedEntry>;
   readonly activeWorkStartedAt: string | null;
   readonly activePendingApproval: PendingApproval | null;
-  readonly respondingApprovalId: ApprovalRequestId | null;
+  readonly respondingApprovalId: RuntimeRequestId | null;
   readonly activePendingUserInput: PendingUserInput | null;
   readonly activePendingUserInputDrafts: Record<string, PendingUserInputDraftAnswer>;
   readonly activePendingUserInputAnswers: Record<string, string> | null;
-  readonly respondingUserInputId: ApprovalRequestId | null;
+  readonly respondingUserInputId: RuntimeRequestId | null;
   readonly draftMessage: string;
   readonly draftAttachments: ReadonlyArray<DraftComposerImageAttachment>;
   readonly connectionStateLabel: EnvironmentConnectionPhase;
@@ -79,16 +79,16 @@ export interface ThreadDetailScreenProps {
   readonly onUpdateThreadRuntimeMode: (runtimeMode: RuntimeMode) => void;
   readonly onUpdateThreadInteractionMode: (interactionMode: ProviderInteractionMode) => void;
   readonly onRespondToApproval: (
-    requestId: ApprovalRequestId,
+    requestId: RuntimeRequestId,
     decision: ProviderApprovalDecision,
   ) => Promise<unknown>;
   readonly onSelectUserInputOption: (
-    requestId: ApprovalRequestId,
+    requestId: RuntimeRequestId,
     questionId: string,
     label: string,
   ) => void;
   readonly onChangeUserInputCustomAnswer: (
-    requestId: ApprovalRequestId,
+    requestId: RuntimeRequestId,
     questionId: string,
     customAnswer: string,
   ) => void;
@@ -314,7 +314,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
               feed={props.selectedThreadFeed}
               contentPresentation={props.contentPresentation}
               agentLabel={agentLabel}
-              latestTurn={props.selectedThread.latestTurn}
+              latestRun={props.selectedThread.latestRun}
               contentTopInset={headerHeight}
               contentBottomInset={feedBottomInset}
               layoutVariant={layoutVariant}

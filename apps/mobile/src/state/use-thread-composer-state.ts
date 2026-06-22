@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/shell";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CommandId, MessageId, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
@@ -101,13 +102,13 @@ export function useThreadComposerState() {
 
   const selectedThreadSessionActivity = useMemo(() => {
     const selectedThread = selectedThreadDetail ?? selectedThreadShell;
-    if (!selectedThread?.session) {
+    if (!selectedThread?.runtime) {
       return null;
     }
 
     return {
-      orchestrationStatus: selectedThread.session.status,
-      activeTurnId: selectedThread.session.activeTurnId ?? undefined,
+      orchestrationStatus: selectedThread.runtime.status,
+      activeRunId: selectedThread.runtime.activeRunId ?? undefined,
     };
   }, [selectedThreadDetail, selectedThreadShell]);
 
@@ -119,7 +120,7 @@ export function useThreadComposerState() {
     }
 
     return deriveActiveWorkStartedAt(
-      selectedThread.latestTurn,
+      selectedThread.latestRun,
       selectedThreadSessionActivity,
       queuedSendStartedAt,
     );
@@ -131,9 +132,7 @@ export function useThreadComposerState() {
   ]);
 
   const selectedThread = selectedThreadDetail ?? selectedThreadShell;
-  const activeThreadBusy =
-    !!selectedThread &&
-    (selectedThread.session?.status === "running" || selectedThread.session?.status === "starting");
+  const activeThreadBusy = !!selectedThread && threadRuntimeIsActive(selectedThread.runtime);
 
   const onSendMessage = useCallback(async () => {
     if (!selectedThreadShell) {
