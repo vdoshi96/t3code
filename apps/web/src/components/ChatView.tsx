@@ -186,6 +186,7 @@ import {
   useProject,
   useProjects,
   useThread,
+  useThreadShell,
   useThreadProposedPlans,
   useThreadRefs,
   useThreadVisibleTurnItems,
@@ -1216,6 +1217,28 @@ function ChatViewContent(props: ChatViewProps) {
   );
   const isServerThread = routeKind === "server" && serverThread !== null;
   const activeThread = isServerThread ? serverThread : localDraftThread;
+  const parentSubagentThreadId =
+    activeThread?.lineage.relationshipToParent === "subagent"
+      ? activeThread.lineage.parentThreadId
+      : null;
+  const parentSubagentEnvironmentId = activeThread?.environmentId ?? null;
+  const parentSubagentThreadRef = useMemo(() => {
+    if (parentSubagentEnvironmentId === null || parentSubagentThreadId === null) {
+      return null;
+    }
+    return scopeThreadRef(parentSubagentEnvironmentId, parentSubagentThreadId);
+  }, [parentSubagentEnvironmentId, parentSubagentThreadId]);
+  const parentSubagentThread = useThreadShell(parentSubagentThreadRef);
+  const parentThreadLink = useMemo(
+    () =>
+      parentSubagentThreadRef === null
+        ? null
+        : {
+            threadId: parentSubagentThreadRef.threadId,
+            title: parentSubagentThread?.title ?? "Parent thread",
+          },
+    [parentSubagentThread?.title, parentSubagentThreadRef],
+  );
   const threadError = isServerThread
     ? (localServerError ?? serverThread?.runtime?.lastError ?? null)
     : localDraftError;
@@ -4885,6 +4908,7 @@ function ChatViewContent(props: ChatViewProps) {
                 routeThreadKey={routeThreadKey}
                 onOpenTurnDiff={onOpenTurnDiff}
                 onOpenThread={onOpenRelatedThread}
+                parentThreadLink={parentThreadLink}
                 onForkFromRun={onForkFromRun}
                 onRollbackCheckpoint={(input) => void onRollbackCheckpoint(input)}
                 revertTurnCountByUserMessageId={revertTurnCountByUserMessageId}
