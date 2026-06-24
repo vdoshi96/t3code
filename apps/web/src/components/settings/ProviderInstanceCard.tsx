@@ -347,6 +347,12 @@ interface ProviderInstanceCardProps {
   readonly onHiddenModelsChange: (next: ReadonlyArray<string>) => void;
   readonly onFavoriteModelsChange: (next: ReadonlyArray<string>) => void;
   readonly onModelOrderChange: (next: ReadonlyArray<string>) => void;
+  readonly onModelSettingsChange: (next: {
+    readonly instance: ProviderInstanceConfig;
+    readonly hiddenModels: ReadonlyArray<string>;
+    readonly favoriteModels: ReadonlyArray<string>;
+    readonly modelOrder: ReadonlyArray<string>;
+  }) => void;
   readonly onRunUpdate?: (() => void) | undefined;
   readonly isUpdating?: boolean | undefined;
 }
@@ -391,6 +397,7 @@ export function ProviderInstanceCard({
   onHiddenModelsChange,
   onFavoriteModelsChange,
   onModelOrderChange,
+  onModelSettingsChange,
   onRunUpdate,
   isUpdating = false,
 }: ProviderInstanceCardProps) {
@@ -485,10 +492,23 @@ export function ProviderInstanceCard({
     );
   };
 
-  const updateCustomModels = (next: ReadonlyArray<string>) => {
+  const instanceWithCustomModels = (next: ReadonlyArray<string>) => {
     const nextConfig = nextConfigBlobWithValue(instance.config, "customModels", [...next]);
     const { config: _omit, ...rest } = instance;
-    onUpdate({ ...rest, config: nextConfig } as ProviderInstanceConfig);
+    return { ...rest, config: nextConfig } as ProviderInstanceConfig;
+  };
+
+  const updateCustomModels = (next: ReadonlyArray<string>) => {
+    onUpdate(instanceWithCustomModels(next));
+  };
+
+  const removeCustomModel = (slug: string) => {
+    onModelSettingsChange({
+      instance: instanceWithCustomModels(customModels.filter((model) => model !== slug)),
+      hiddenModels: hiddenModels.filter((model) => model !== slug),
+      favoriteModels: favoriteModels.filter((model) => model !== slug),
+      modelOrder: modelOrder.filter((model) => model !== slug),
+    });
   };
 
   const updateEnvironment = (environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>) => {
@@ -784,6 +804,7 @@ export function ProviderInstanceCard({
                 favoriteModels={favoriteModels}
                 modelOrder={modelOrder}
                 onChange={updateCustomModels}
+                onCustomModelRemove={removeCustomModel}
                 onHiddenModelsChange={onHiddenModelsChange}
                 onFavoriteModelsChange={onFavoriteModelsChange}
                 onModelOrderChange={onModelOrderChange}

@@ -68,6 +68,7 @@ interface ProviderModelsSectionProps {
    * `providerInstances[id].config`).
    */
   readonly onChange: (next: ReadonlyArray<string>) => void;
+  readonly onCustomModelRemove: (slug: string) => void;
   readonly onHiddenModelsChange: (next: ReadonlyArray<string>) => void;
   readonly onFavoriteModelsChange: (next: ReadonlyArray<string>) => void;
   readonly onModelOrderChange: (next: ReadonlyArray<string>) => void;
@@ -93,6 +94,7 @@ export function ProviderModelsSection({
   favoriteModels,
   modelOrder,
   onChange,
+  onCustomModelRemove,
   onHiddenModelsChange,
   onFavoriteModelsChange,
   onModelOrderChange,
@@ -150,9 +152,7 @@ export function ProviderModelsSection({
   };
 
   const handleRemove = (slug: string) => {
-    onChange(customModels.filter((model) => model !== slug));
-    onModelOrderChange(modelOrder.filter((model) => model !== slug));
-    onFavoriteModelsChange(favoriteModels.filter((model) => model !== slug));
+    onCustomModelRemove(slug);
     setError(null);
   };
 
@@ -194,7 +194,7 @@ export function ProviderModelsSection({
         {orderedModels.map((model, index) => {
           const caps = model.capabilities;
           const capLabels: string[] = [];
-          const isHidden = !model.isCustom && hiddenModelSet.has(model.slug);
+          const isHidden = hiddenModelSet.has(model.slug);
           const isFavorite = favoriteModelSet.has(model.slug);
           const previousModel = orderedModels[index - 1];
           const nextModel = orderedModels[index + 1];
@@ -335,30 +335,24 @@ export function ProviderModelsSection({
                   </TooltipTrigger>
                   <TooltipPopup side="top">Move down</TooltipPopup>
                 </Tooltip>
-                {!model.isCustom ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          size="icon-xs"
-                          variant="ghost"
-                          className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleToggleHidden(model.slug)}
-                          aria-label={`${isHidden ? "Show" : "Hide"} ${model.name}`}
-                        />
-                      }
-                    >
-                      {isHidden ? (
-                        <EyeIcon className="size-3" />
-                      ) : (
-                        <EyeOffIcon className="size-3" />
-                      )}
-                    </TooltipTrigger>
-                    <TooltipPopup side="top">
-                      {isHidden ? "Show in picker" : "Hide from picker"}
-                    </TooltipPopup>
-                  </Tooltip>
-                ) : null}
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        className="size-5 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleToggleHidden(model.slug)}
+                        aria-label={`${isHidden ? "Show" : "Hide"} ${model.name}`}
+                      />
+                    }
+                  >
+                    {isHidden ? <EyeIcon className="size-3" /> : <EyeOffIcon className="size-3" />}
+                  </TooltipTrigger>
+                  <TooltipPopup side="top">
+                    {isHidden ? "Show in picker" : "Hide from picker"}
+                  </TooltipPopup>
+                </Tooltip>
                 {model.isCustom ? (
                   <Tooltip>
                     <TooltipTrigger

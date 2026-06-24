@@ -27,7 +27,11 @@ import {
   isProviderInstancePickerVisible,
   type ProviderInstanceEntry,
 } from "../../providerInstances";
-import { providerModelKey, sortProviderModelItems } from "../../modelOrdering";
+import {
+  moveProviderModelFavorite,
+  providerModelKey,
+  sortProviderModelItems,
+} from "../../modelOrdering";
 
 type ModelPickerItem = {
   slug: string;
@@ -155,6 +159,10 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const favoritesSet = useMemo(() => {
     return new Set(favorites.map((fav) => providerModelKey(fav.provider, fav.model)));
   }, [favorites]);
+  const favoriteModelKeys = useMemo(
+    () => favorites.map((favorite) => providerModelKey(favorite.provider, favorite.model)),
+    [favorites],
+  );
 
   /**
    * Lookup table keyed by `instanceId`. Used for display name + driver
@@ -350,9 +358,11 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     return sortProviderModelItems(result, {
       favoriteModelKeys: favoritesSet,
       groupFavorites: selectedInstanceId !== "favorites",
+      modelKeyOrder: selectedInstanceId === "favorites" ? favoriteModelKeys : [],
       instanceOrder: selectedInstanceId === "favorites" ? instanceOrder : [],
     });
   }, [
+    favoriteModelKeys,
     favoritesSet,
     flatModels,
     instanceOrder,
@@ -435,6 +445,17 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     (): ReadonlyMap<string, ModelPickerItem> =>
       new Map(filteredModels.map((model) => [`${model.instanceId}:${model.slug}`, model] as const)),
     [filteredModels],
+  );
+  const moveFavorite = useCallback(
+    (modelKey: string, direction: -1 | 1) => {
+      if (selectedInstanceId !== "favorites" || isSearching) {
+        return;
+      }
+      updateSettings({
+        favorites: moveProviderModelFavorite(favorites, modelKey, direction, filteredModelKeys),
+      });
+    },
+    [favorites, filteredModelKeys, isSearching, selectedInstanceId, updateSettings],
   );
   const updateModelListScrollFades = useCallback(() => {
     const scrollElement = modelListRef.current?.getScrollableNode();
@@ -632,6 +653,8 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                     }
                     const disabledReason =
                       getModelDisabledReason?.(model.instanceId, model.slug) ?? null;
+                    const showFavoriteMoveControls =
+                      selectedInstanceId === "favorites" && !isSearching;
                     return (
                       <ModelListRow
                         key={modelKey}
@@ -649,6 +672,14 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                         showNewBadge={isModelPickerNewModel(model.driverKind, model.slug)}
                         jumpLabel={modelJumpLabelByKey.get(modelKey) ?? null}
                         disabledReason={disabledReason}
+                        {...(showFavoriteMoveControls
+                          ? {
+                              canMoveFavoriteUp: index > 0,
+                              canMoveFavoriteDown: index < filteredModelKeys.length - 1,
+                              onMoveFavoriteUp: () => moveFavorite(modelKey, -1),
+                              onMoveFavoriteDown: () => moveFavorite(modelKey, 1),
+                            }
+                          : {})}
                         onToggleFavorite={() => toggleFavorite(model.instanceId, model.slug)}
                       />
                     );

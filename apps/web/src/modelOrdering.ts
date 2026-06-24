@@ -10,8 +10,17 @@ export interface ProviderModelItem extends ModelSlugItem {
   readonly instanceId: ProviderInstanceId;
 }
 
+export interface ProviderModelFavorite {
+  readonly provider: ProviderInstanceId;
+  readonly model: string;
+}
+
 export function providerModelKey(instanceId: ProviderInstanceId, slug: string): string {
   return `${instanceId}:${slug}`;
+}
+
+export function providerModelFavoriteKey(favorite: ProviderModelFavorite): string {
+  return providerModelKey(favorite.provider, favorite.model);
 }
 
 function rankByValue(values: ReadonlyArray<string>): ReadonlyMap<string, number> {
@@ -60,10 +69,12 @@ export function sortProviderModelItems<T extends ProviderModelItem>(
   options?: {
     readonly favoriteModelKeys?: ReadonlySet<string> | ReadonlyArray<string>;
     readonly groupFavorites?: boolean;
+    readonly modelKeyOrder?: ReadonlyArray<string>;
     readonly instanceOrder?: ReadonlyArray<ProviderInstanceId>;
   },
 ): T[] {
   const favoriteModelKeys = toSet(options?.favoriteModelKeys);
+  const modelKeyOrder = rankByValue(options?.modelKeyOrder ?? []);
   const instanceOrder = new Map(
     Arr.map(options?.instanceOrder ?? [], (instanceId, index) => [instanceId, index] as const),
   );
@@ -78,9 +89,38 @@ export function sortProviderModelItems<T extends ProviderModelItem>(
           ),
         ]
       : []),
+    byOptionalRank((item) => modelKeyOrder.get(providerModelKey(item.instanceId, item.slug))),
     byOptionalRank((item) => instanceOrder.get(item.instanceId)),
     byOptionalRank((item) => originalOrder.get(providerModelKey(item.instanceId, item.slug))),
   ];
 
   return Arr.sort(items, Order.combineAll(orders));
+}
+
+export function moveProviderModelFavorite(
+  favorites: ReadonlyArray<ProviderModelFavorite>,
+  modelKey: string,
+  direction: -1 | 1,
+  visibleModelKeys?: ReadonlyArray<string>,
+): ProviderModelFavorite[] {
+  const visibleOrder = visibleModelKeys ?? favorites.map(providerModelFavoriteKey);
+  const visibleIndex = visibleOrder.indexOf(modelKey);
+  const targetVisibleKey = visibleOrder[visibleIndex + direction];
+  if (visibleIndex < 0 || targetVisibleKey === undefined) {
+    return [...favorites];
+  }
+
+  const movingIndex = favorites.findIndex(
+    (favorite) => providerModelFavoriteKey(favorite) === modelKey,
+  );
+  const targetIndex = favorites.findIndex(
+    (favorite) => providerModelFavoriteKey(favorite) === targetVisibleKey,
+  );
+  if (movingIndex < 0 || targetIndex < 0 || movingIndex === targetIndex) {
+    return [...favorites];
+  }
+
+  const next = [...favorites];
+  [next[movingIndex], next[targetIndex]] = [next[targetIndex]!, next[movingIndex]!];
+  return next;
 }

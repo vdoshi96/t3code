@@ -169,6 +169,31 @@ describe("instance-scoped model selection", () => {
     ]);
   });
 
+  it("hides custom models from the instance option list without deleting them", () => {
+    const providers = [
+      provider({
+        instanceId: "claude_openrouter",
+        models: ["claude-sonnet-4-6"],
+      }),
+    ];
+    const settings: UnifiedSettings = {
+      ...settingsWithProviderInstances(),
+      providerModelPreferences: {
+        [ProviderInstanceId.make("claude_openrouter")]: {
+          hiddenModels: ["openai/gpt-5.5"],
+          modelOrder: [],
+        },
+      },
+    };
+    const openrouter = deriveProviderInstanceEntries(providers).find(
+      (entry) => entry.instanceId === "claude_openrouter",
+    )!;
+
+    expect(
+      getAppModelOptionsForInstance(settings, openrouter).map((option) => option.slug),
+    ).toEqual(["claude-sonnet-4-6"]);
+  });
+
   it("applies persisted per-instance model ordering", () => {
     const providers = [
       provider({

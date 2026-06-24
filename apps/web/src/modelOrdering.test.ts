@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { ProviderInstanceId } from "@t3tools/contracts";
 
 import {
+  moveProviderModelFavorite,
+  providerModelFavoriteKey,
   providerModelKey,
   sortModelsForProviderInstance,
   sortProviderModelItems,
@@ -28,7 +30,7 @@ describe("model ordering", () => {
     ).toEqual(["gpt-5.4-mini", "gpt-5.5", "crest-alpha", "gpt-5.3-codex"]);
   });
 
-  it("sorts the favorites view by provider order, then provider model order", () => {
+  it("sorts the favorites view by persisted favorite order", () => {
     const items = [
       { instanceId: CODEX_WORK_ID, slug: "gpt-5.4-mini" },
       { instanceId: CODEX_WORK_ID, slug: "gpt-5.5" },
@@ -45,8 +47,36 @@ describe("model ordering", () => {
     expect(
       sortProviderModelItems(items, {
         favoriteModelKeys: favoriteKeys,
+        modelKeyOrder: favoriteKeys,
         instanceOrder: [CODEX_WORK_ID, CLAUDE_ID],
       }).map((item) => item.slug),
-    ).toEqual(["gpt-5.4-mini", "gpt-5.5", "crest-alpha", "claude-opus-4-6"]);
+    ).toEqual(["gpt-5.5", "claude-opus-4-6", "gpt-5.4-mini", "crest-alpha"]);
+  });
+
+  it("moves favorites by visible favorite order while preserving hidden entries", () => {
+    const favorites = [
+      { provider: CODEX_WORK_ID, model: "gpt-5.5" },
+      { provider: ProviderInstanceId.make("grok"), model: "grok-4" },
+      { provider: CLAUDE_ID, model: "claude-opus-4-6" },
+      { provider: CODEX_WORK_ID, model: "gpt-5.4-mini" },
+    ];
+
+    const next = moveProviderModelFavorite(
+      favorites,
+      providerModelKey(CLAUDE_ID, "claude-opus-4-6"),
+      -1,
+      [
+        providerModelKey(CODEX_WORK_ID, "gpt-5.5"),
+        providerModelKey(CLAUDE_ID, "claude-opus-4-6"),
+        providerModelKey(CODEX_WORK_ID, "gpt-5.4-mini"),
+      ],
+    );
+
+    expect(next.map(providerModelFavoriteKey)).toEqual([
+      providerModelKey(CLAUDE_ID, "claude-opus-4-6"),
+      providerModelKey(ProviderInstanceId.make("grok"), "grok-4"),
+      providerModelKey(CODEX_WORK_ID, "gpt-5.5"),
+      providerModelKey(CODEX_WORK_ID, "gpt-5.4-mini"),
+    ]);
   });
 });

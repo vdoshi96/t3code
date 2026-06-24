@@ -76,8 +76,10 @@ import {
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
 import { DRIVER_OPTIONS, getDriverOption } from "./providerDriverMeta";
 import {
+  buildProviderInstanceModelsUpdatePatch,
   buildProviderInstanceUpdatePatch,
   formatDiagnosticsDescription,
+  mergeProviderInstanceFavorites,
 } from "./SettingsPanels.logic";
 import {
   SettingResetButton,
@@ -1236,11 +1238,35 @@ export function ProviderSettingsPanel() {
       ),
     ];
     updateSettings({
-      favorites: [
-        ...withoutProviderInstanceFavorites(settings.favorites ?? [], instanceId),
-        ...favoriteModels.map((model) => ({ provider: instanceId, model })),
-      ],
+      favorites: mergeProviderInstanceFavorites({
+        favorites: settings.favorites ?? [],
+        instanceId,
+        nextFavoriteModels: favoriteModels,
+      }),
     });
+  };
+
+  const updateProviderInstanceModels = (
+    row: InstanceRow,
+    next: {
+      readonly instance: ProviderInstanceConfig;
+      readonly hiddenModels: ReadonlyArray<string>;
+      readonly favoriteModels: ReadonlyArray<string>;
+      readonly modelOrder: ReadonlyArray<string>;
+    },
+  ) => {
+    updateSettings(
+      buildProviderInstanceModelsUpdatePatch({
+        settings,
+        instanceId: row.instanceId,
+        instance: next.instance,
+        driver: row.driver,
+        isDefault: row.isDefault,
+        hiddenModels: next.hiddenModels,
+        favoriteModels: next.favoriteModels,
+        modelOrder: next.modelOrder,
+      }),
+    );
   };
 
   const resetDefaultInstance = (driverKind: ProviderDriverKind) => {
@@ -1397,6 +1423,7 @@ export function ProviderSettingsPanel() {
                   modelOrder,
                 })
               }
+              onModelSettingsChange={(next) => updateProviderInstanceModels(row, next)}
               onRunUpdate={
                 showInlineUpdateButton && updateCandidate
                   ? () => {
