@@ -1,6 +1,6 @@
 import { type ProviderDriverKind, type ProviderInstanceId } from "@t3tools/contracts";
 import { memo } from "react";
-import { CheckIcon, StarIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, StarIcon } from "lucide-react";
 import {
   getDisplayModelName,
   getTriggerDisplayModelLabel,
@@ -35,12 +35,23 @@ export const ModelListRow = memo(function ModelListRow(props: {
   showNewBadge?: boolean;
   jumpLabel?: string | null;
   disabledReason?: string | null;
+  canMoveFavoriteUp?: boolean;
+  canMoveFavoriteDown?: boolean;
+  onMoveFavoriteUp?: () => void;
+  onMoveFavoriteDown?: () => void;
   onToggleFavorite: () => void;
 }) {
   const ProviderIcon = PROVIDER_ICON_BY_PROVIDER[props.driverKind] ?? null;
+  const modelLabel = props.useTriggerLabel
+    ? getTriggerDisplayModelLabel(props.model)
+    : getDisplayModelName(
+        props.model,
+        props.preferShortName ? { preferShortName: true } : undefined,
+      );
   const providerLabel = props.model.subProvider
     ? `${props.providerDisplayName} · ${props.model.subProvider}`
     : props.providerDisplayName;
+  const showFavoriteMoveControls = props.onMoveFavoriteUp || props.onMoveFavoriteDown;
 
   const row = (
     <ComboboxItem
@@ -58,14 +69,7 @@ export const ModelListRow = memo(function ModelListRow(props: {
     >
       <div className="min-w-0 flex-1 text-left">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0 truncate text-xs font-medium leading-snug">
-            {props.useTriggerLabel
-              ? getTriggerDisplayModelLabel(props.model)
-              : getDisplayModelName(
-                  props.model,
-                  props.preferShortName ? { preferShortName: true } : undefined,
-                )}
-          </div>
+          <div className="min-w-0 truncate text-xs font-medium leading-snug">{modelLabel}</div>
           {props.isSelected ? <CheckIcon className="size-3.5 shrink-0 text-blue-400" /> : null}
           {props.showNewBadge ? (
             <span
@@ -89,6 +93,60 @@ export const ModelListRow = memo(function ModelListRow(props: {
       <div className="flex shrink-0 items-center gap-1.5">
         {props.jumpLabel ? (
           <Kbd className="h-4 min-w-0 rounded-sm px-1.5 text-[10px]">{props.jumpLabel}</Kbd>
+        ) : null}
+        {showFavoriteMoveControls ? (
+          <div className="flex items-center gap-0.5">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    className="size-5 rounded-sm p-0 text-muted-foreground/70 opacity-64 transition-[color,opacity] hover:text-foreground hover:opacity-100 disabled:opacity-35 group-hover:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      props.onMoveFavoriteUp?.();
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    disabled={Boolean(props.disabledReason) || !props.canMoveFavoriteUp}
+                    aria-label={`Move ${modelLabel} up in favorites`}
+                  />
+                }
+              >
+                <ArrowUpIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup side="top" align="center">
+                Move up
+              </TooltipPopup>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    className="size-5 rounded-sm p-0 text-muted-foreground/70 opacity-64 transition-[color,opacity] hover:text-foreground hover:opacity-100 disabled:opacity-35 group-hover:opacity-100"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      props.onMoveFavoriteDown?.();
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    disabled={Boolean(props.disabledReason) || !props.canMoveFavoriteDown}
+                    aria-label={`Move ${modelLabel} down in favorites`}
+                  />
+                }
+              >
+                <ArrowDownIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup side="top" align="center">
+                Move down
+              </TooltipPopup>
+            </Tooltip>
+          </div>
         ) : null}
         <Tooltip>
           <TooltipTrigger

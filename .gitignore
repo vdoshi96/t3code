@@ -28,6 +28,7 @@ squashfs-root/
 dist-electron/
 .electron-runtime/
 node_modules/
+.worktrees/
 .alchemy/
 *.log
 .env*

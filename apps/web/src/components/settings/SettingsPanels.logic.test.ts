@@ -1,13 +1,16 @@
 import {
   DEFAULT_SERVER_SETTINGS,
+  DEFAULT_UNIFIED_SETTINGS,
   ProviderDriverKind,
   ProviderInstanceId,
   type ProviderInstanceConfig,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
+  buildProviderInstanceModelsUpdatePatch,
   buildProviderInstanceUpdatePatch,
   formatDiagnosticsDescription,
+  mergeProviderInstanceFavorites,
 } from "./SettingsPanels.logic";
 
 describe("formatDiagnosticsDescription", () => {
@@ -100,5 +103,87 @@ describe("buildProviderInstanceUpdatePatch", () => {
 
     expect(patch.providerInstances?.[instanceId]).toEqual(nextInstance);
     expect(patch.providers).toBeUndefined();
+  });
+});
+
+describe("mergeProviderInstanceFavorites", () => {
+  it("preserves cross-provider favorite order and appends newly favorited models", () => {
+    const codex = ProviderInstanceId.make("codex");
+    const claude = ProviderInstanceId.make("claudeAgent");
+    const grok = ProviderInstanceId.make("grok");
+
+    expect(
+      mergeProviderInstanceFavorites({
+        favorites: [
+          { provider: codex, model: "gpt-5.5" },
+          { provider: claude, model: "claude-opus-4-6" },
+          { provider: codex, model: "gpt-5.4-mini" },
+          { provider: grok, model: "grok-4" },
+        ],
+        instanceId: codex,
+        nextFavoriteModels: ["gpt-5.4-mini", "crest-alpha"],
+      }),
+    ).toEqual([
+      { provider: claude, model: "claude-opus-4-6" },
+      { provider: codex, model: "gpt-5.4-mini" },
+      { provider: grok, model: "grok-4" },
+      { provider: codex, model: "crest-alpha" },
+    ]);
+  });
+});
+
+describe("buildProviderInstanceModelsUpdatePatch", () => {
+  it("removes a custom model from config, preferences, and favorites in one patch", () => {
+    const instanceId = ProviderInstanceId.make("codex");
+    const nextInstance = {
+      driver: ProviderDriverKind.make("codex"),
+      enabled: true,
+      config: {
+        customModels: ["custom-beta"],
+      },
+    } satisfies ProviderInstanceConfig;
+
+    const patch = buildProviderInstanceModelsUpdatePatch({
+      settings: {
+        ...DEFAULT_UNIFIED_SETTINGS,
+        providerInstances: {
+          [instanceId]: {
+            driver: ProviderDriverKind.make("codex"),
+            enabled: true,
+            config: {
+              customModels: ["custom-alpha", "custom-beta"],
+            },
+          },
+        },
+        providerModelPreferences: {
+          [instanceId]: {
+            hiddenModels: ["custom-alpha", "custom-beta"],
+            modelOrder: ["custom-beta", "custom-alpha"],
+          },
+        },
+        favorites: [
+          { provider: instanceId, model: "custom-alpha" },
+          { provider: ProviderInstanceId.make("claudeAgent"), model: "claude-opus-4-6" },
+          { provider: instanceId, model: "custom-beta" },
+        ],
+      },
+      instanceId,
+      instance: nextInstance,
+      driver: ProviderDriverKind.make("codex"),
+      isDefault: true,
+      hiddenModels: ["custom-beta"],
+      modelOrder: ["custom-beta"],
+      favoriteModels: ["custom-beta"],
+    });
+
+    expect(patch.providerInstances?.[instanceId]).toEqual(nextInstance);
+    expect(patch.providerModelPreferences?.[instanceId]).toEqual({
+      hiddenModels: ["custom-beta"],
+      modelOrder: ["custom-beta"],
+    });
+    expect(patch.favorites).toEqual([
+      { provider: ProviderInstanceId.make("claudeAgent"), model: "claude-opus-4-6" },
+      { provider: instanceId, model: "custom-beta" },
+    ]);
   });
 });
