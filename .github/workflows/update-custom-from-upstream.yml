@@ -1,0 +1,179 @@
+name: Update custom app from upstream release
+
+on:
+  schedule:
+    - cron: "17 */12 * * *"
+  workflow_dispatch:
+    inputs:
+      release_channel:
+        description: "Upstream release channel to poll when upstream_ref is blank."
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - nightly
+      upstream_ref:
+        description: "Optional upstream ref to merge, for example refs/tags/v0.0.28 or upstream/main."
+        required: false
+        type: string
+      force:
+        description: "Run the updater even when custom-main already contains the upstream ref."
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-custom-app-from-upstream
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve upstream release
+    if: github.repository != 'pingdotgg/t3code'
+    runs-on: ubuntu-latest
+    outputs:
+      should_update: ${{ steps.current.outputs.should_update }}
+      upstream_commit: ${{ steps.current.outputs.upstream_commit }}
+      upstream_ref: ${{ steps.release.outputs.upstream_ref }}
+      release_label: ${{ steps.release.outputs.release_label }}
+    steps:
+      - name: Checkout fork main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - id: release
+        name: Resolve upstream release ref
+        uses: actions/github-script@v8
+        env:
+          RELEASE_CHANNEL: ${{ inputs.release_channel || 'stable' }}
+          REQUESTED_UPSTREAM_REF: ${{ inputs.upstream_ref || '' }}
+        with:
+          script: |
+            const owner = "pingdotgg";
+            const repo = "t3code";
+            const requestedRef = process.env.REQUESTED_UPSTREAM_REF.trim();
+            const channel = process.env.RELEASE_CHANNEL || "stable";
+
+            if (requestedRef.length > 0) {
+              core.setOutput("upstream_ref", requestedRef);
+              core.setOutput("release_label", requestedRef);
+              return;
+            }
+
+            let release;
+            if (channel === "stable") {
+              const response = await github.rest.repos.getLatestRelease({ owner, repo });
+              release = response.data;
+            } else if (channel === "nightly") {
+              const releases = await github.paginate(github.rest.repos.listReleases, {
+                owner,
+                repo,
+                per_page: 100,
+              });
+              release = releases.find((candidate) => !candidate.draft && candidate.prerelease);
+            } else {
+              throw new Error(`Unsupported release channel: ${channel}`);
+            }
+
+            if (!release) {
+              throw new Error(`No upstream ${channel} release found for ${owner}/${repo}.`);
+            }
+
+            core.setOutput("upstream_ref", `refs/tags/${release.tag_name}`);
+            core.setOutput("release_label", release.name || release.tag_name);
+
+      - id: current
+        name: Check custom-main update state
+        env:
+          FORCE_UPDATE: ${{ inputs.force || false }}
+          UPSTREAM_REF: ${{ steps.release.outputs.upstream_ref }}
+        run: |
+          set -euo pipefail
+
+          git remote add upstream https://github.com/pingdotgg/t3code.git
+          git fetch --prune origin "+refs/heads/custom-main:refs/remotes/origin/custom-main"
+
+          if [[ "$UPSTREAM_REF" == upstream/* ]]; then
+            upstream_branch="${UPSTREAM_REF#upstream/}"
+            git fetch --prune upstream "+refs/heads/$upstream_branch:refs/remotes/upstream/$upstream_branch"
+          elif [[ "$UPSTREAM_REF" == refs/tags/* || "$UPSTREAM_REF" == v* ]]; then
+            git fetch --prune --tags upstream
+          else
+            git fetch --prune --tags upstream
+          fi
+
+          upstream_commit="$(git rev-parse "$UPSTREAM_REF^{commit}")"
+          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
+
+          if [[ "$FORCE_UPDATE" != "true" ]] && git merge-base --is-ancestor "$upstream_commit" origin/custom-main; then
+            echo "custom-main already contains $UPSTREAM_REF ($upstream_commit)."
+            echo "should_update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "custom-main needs $UPSTREAM_REF ($upstream_commit)."
+          echo "should_update=true" >> "$GITHUB_OUTPUT"
+
+  update:
+    name: Update and verify custom-main
+    needs: resolve
+    if: needs.resolve.outputs.should_update == 'true'
+    runs-on: blacksmith-12vcpu-macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout fork main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare fork branches and upstream ref
+        env:
+          UPSTREAM_REF: ${{ needs.resolve.outputs.upstream_ref }}
+        run: |
+          set -euo pipefail
+
+          git remote add upstream https://github.com/pingdotgg/t3code.git
+          git fetch --prune origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/custom-main:refs/remotes/origin/custom-main"
+
+          if [[ "$UPSTREAM_REF" == upstream/* ]]; then
+            upstream_branch="${UPSTREAM_REF#upstream/}"
+            git fetch --prune upstream "+refs/heads/$upstream_branch:refs/remotes/upstream/$upstream_branch"
+          elif [[ "$UPSTREAM_REF" == refs/tags/* || "$UPSTREAM_REF" == v* ]]; then
+            git fetch --prune --tags upstream
+          else
+            git fetch --prune --tags upstream
+          fi
+
+          git switch -C main origin/main
+          git switch -C custom-main origin/custom-main
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - name: Merge and verify custom app update
+        env:
+          UPSTREAM_REF: ${{ needs.resolve.outputs.upstream_ref }}
+        run: scripts/update-custom-from-upstream.sh
+
+      - name: Push verified branches
+        run: |
+          git push origin main
+          git push origin custom-main
