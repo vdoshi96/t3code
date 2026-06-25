@@ -79,11 +79,16 @@ match `<TEAM_ID>.com.vdoshi.t3code.custom`.
 Branch roles:
 
 - `main` is the fork administration branch. It carries fork-only admin files
-  such as the upstream-sync workflow and should stay merged with
-  `pingdotgg/t3code:main`.
+  such as the upstream-sync workflow and scheduled custom-app update workflow.
 - `custom-main` is the long-lived branch for customizations.
 - Feature work should happen in an isolated worktree/branch and merge back into
   `custom-main`.
+
+The GitHub workflow on `main` checks for upstream releases every 12 hours. When
+a new upstream stable release is published, it runs the custom update script
+against that release tag, verifies the custom app branch, and pushes `main` and
+`custom-main` only after checks pass. A manual workflow dispatch can point at a
+specific upstream ref, including a nightly tag or `upstream/main`.
 
 From a clean checkout:
 
@@ -91,17 +96,26 @@ From a clean checkout:
 scripts/update-custom-from-upstream.sh
 ```
 
+To update from a release tag instead of `upstream/main`:
+
+```sh
+UPSTREAM_REF=refs/tags/v0.0.28 scripts/update-custom-from-upstream.sh
+```
+
 The script:
 
-1. Fetches `origin` and `upstream/main`.
-2. Merges `upstream/main` into local `main` without rewriting history.
-3. Merges `upstream/main` into local `custom-main` without rewriting history.
-4. Aborts before merging if upstream appears to include native favorite-model
+1. Fetches `origin` and the selected upstream ref.
+2. Merges the upstream ref into local `main` without rewriting history.
+3. Merges the upstream ref into local `custom-main` without rewriting history.
+4. Verifies `custom-main` still contains the custom desktop app identity and
+   favorite-model reordering markers.
+5. Aborts before merging if upstream appears to include native favorite-model
    reordering while `custom-main` still has the custom implementation.
-5. Runs:
+6. Runs:
 
 ```sh
 vp i
+vp run --filter @t3tools/desktop ensure:electron
 vp check
 vp run typecheck
 vp test

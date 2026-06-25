@@ -6,15 +6,18 @@ MAIN_BRANCH="${MAIN_BRANCH:-main}"
 ORIGIN_REMOTE="${ORIGIN_REMOTE:-origin}"
 UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-upstream}"
 UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-main}"
+UPSTREAM_REF="${UPSTREAM_REF:-}"
 PUSH_AFTER_UPDATE=0
 
 usage() {
   cat <<'USAGE'
 Usage: scripts/update-custom-from-upstream.sh [--push]
 
-Fetch upstream/main, merge it into the fork admin branch and custom-main, then
-run the standard local verification commands. The script never force-pushes.
-Passing --push performs normal pushes of main and custom-main after checks pass.
+Fetch an upstream ref, merge it into the fork admin branch and custom-main, then
+run the standard local verification commands. The default upstream ref is
+upstream/main. Set UPSTREAM_REF=refs/tags/vX.Y.Z to update from a release tag.
+The script never force-pushes. Passing --push performs normal pushes of main and
+custom-main after checks pass.
 
 Environment overrides:
   MAIN_BRANCH      fork admin branch to sync first (default: main)
@@ -22,6 +25,7 @@ Environment overrides:
   CUSTOM_BRANCH    branch to update (default: custom-main)
   UPSTREAM_REMOTE  upstream remote name (default: upstream)
   UPSTREAM_BRANCH  upstream branch name (default: main)
+  UPSTREAM_REF     upstream ref to merge (default: UPSTREAM_REMOTE/UPSTREAM_BRANCH)
 USAGE
 }
 
@@ -51,19 +55,70 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-upstream_ref="$UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
+if [[ -z "$UPSTREAM_REF" ]]; then
+  UPSTREAM_REF="$UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
+fi
+
+upstream_ref="$UPSTREAM_REF"
+
+switch_branch() {
+  local target_branch="$1"
+
+  if git show-ref --verify --quiet "refs/heads/$target_branch"; then
+    git switch "$target_branch"
+    return
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/$ORIGIN_REMOTE/$target_branch"; then
+    git switch --track "$ORIGIN_REMOTE/$target_branch"
+    return
+  fi
+
+  echo "Could not find local branch $target_branch or remote branch $ORIGIN_REMOTE/$target_branch." >&2
+  exit 1
+}
+
+fetch_upstream_ref() {
+  local ref="$1"
+
+  if [[ "$ref" == "$UPSTREAM_REMOTE/"* ]]; then
+    git fetch --prune "$UPSTREAM_REMOTE" "${ref#"$UPSTREAM_REMOTE/"}"
+    return
+  fi
+
+  if [[ "$ref" == refs/tags/* || "$ref" == v* ]]; then
+    git fetch --prune --tags "$UPSTREAM_REMOTE"
+    return
+  fi
+
+  git fetch --prune "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH"
+}
+
+resolve_commit() {
+  local ref="$1"
+
+  if ! git rev-parse --verify "$ref^{commit}" >/dev/null 2>&1; then
+    echo "Could not resolve upstream ref $ref to a commit." >&2
+    exit 1
+  fi
+
+  git rev-parse "$ref^{commit}"
+}
 
 run_merge() {
   local target_branch="$1"
   local source_ref="$2"
+  local source_commit
 
-  git switch "$target_branch"
-  if git merge-base --is-ancestor "$source_ref" "$target_branch"; then
+  source_commit="$(resolve_commit "$source_ref")"
+
+  switch_branch "$target_branch"
+  if git merge-base --is-ancestor "$source_commit" "$target_branch"; then
     echo "$target_branch already contains $source_ref."
     return
   fi
 
-  if ! git merge --no-edit "$source_ref"; then
+  if ! git merge --no-edit "$source_commit"; then
     echo "Merge failed while updating $target_branch from $source_ref." >&2
     echo "Resolve the conflicts shown by 'git status', review the favorite-model behavior if touched, then rerun this script." >&2
     git status --short >&2 || true
@@ -105,8 +160,35 @@ has_favorite_reordering_markers() {
     2>/dev/null
 }
 
-git fetch --prune "$ORIGIN_REMOTE"
-git fetch --prune "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH"
+verify_custom_branch_markers() {
+  local ref="$1"
+  local missing=0
+
+  if ! has_favorite_reordering_markers "$ref"; then
+    echo "$ref is missing the custom favorite-model reordering markers." >&2
+    missing=1
+  fi
+
+  if ! git grep -F -q '"baseName": "T3 Code Custom"' "$ref" -- apps/desktop/custom-identity.json 2>/dev/null; then
+    echo "$ref is missing the custom desktop app name marker." >&2
+    missing=1
+  fi
+
+  if ! git grep -F -q '"protocolScheme": "t3code-custom"' "$ref" -- apps/desktop/custom-identity.json 2>/dev/null; then
+    echo "$ref is missing the custom desktop URL scheme marker." >&2
+    missing=1
+  fi
+
+  if ((missing)); then
+    echo "Aborting before checks so the custom app branch is not updated without its custom behavior." >&2
+    exit 4
+  fi
+}
+
+git fetch --prune "$ORIGIN_REMOTE" \
+  "+refs/heads/$MAIN_BRANCH:refs/remotes/$ORIGIN_REMOTE/$MAIN_BRANCH" \
+  "+refs/heads/$CUSTOM_BRANCH:refs/remotes/$ORIGIN_REMOTE/$CUSTOM_BRANCH"
+fetch_upstream_ref "$upstream_ref"
 
 if has_favorite_reordering_markers "$upstream_ref" && has_favorite_reordering_markers "$CUSTOM_BRANCH"; then
   cat >&2 <<EOF
@@ -125,8 +207,9 @@ EOF
 fi
 
 run_merge "$MAIN_BRANCH" "$upstream_ref"
-git switch "$CUSTOM_BRANCH"
+switch_branch "$CUSTOM_BRANCH"
 run_merge "$CUSTOM_BRANCH" "$upstream_ref"
+verify_custom_branch_markers "$CUSTOM_BRANCH"
 
 resolve_vp() {
   if command -v vp >/dev/null 2>&1; then
@@ -151,6 +234,7 @@ resolve_vp() {
 VP="$(resolve_vp)"
 
 "$VP" i
+"$VP" run --filter @t3tools/desktop ensure:electron
 "$VP" check
 "$VP" run typecheck
 "$VP" test
