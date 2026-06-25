@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
+  formatT3WordmarkSuffix,
   resolveServerBackedAppDisplayName,
   resolveServerBackedAppStageLabel,
 } from "./branding.logic";
@@ -61,6 +62,11 @@ describe("branding", () => {
 });
 
 describe("branding logic", () => {
+  it("formats the sidebar suffix for default and custom T3 branding", () => {
+    expect(formatT3WordmarkSuffix("T3 Code")).toBe("Code");
+    expect(formatT3WordmarkSuffix("T3 Code Custom")).toBe("Code Custom");
+  });
+
   it("returns Nightly for nightly primary server versions", () => {
     expect(
       resolveServerBackedAppStageLabel({

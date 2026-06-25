@@ -64,8 +64,8 @@ describe("DesktopEnvironment", () => {
       assert.equal(environment.appRoot, "/repo");
       assert.equal(environment.backendEntryPath, "/repo/apps/server/dist/bin.mjs");
       assert.equal(environment.backendCwd, "/repo");
-      assert.equal(environment.appUserModelId, "com.t3tools.t3code.dev");
-      assert.equal(environment.linuxWmClass, "t3code-dev");
+      assert.equal(environment.appUserModelId, "com.vdoshi.t3code.custom.dev");
+      assert.equal(environment.linuxWmClass, "t3code-custom-dev");
       assert.deepEqual(
         Option.map(environment.devServerUrl, (url) => url.href),
         Option.some("http://localhost:5173/"),
@@ -95,17 +95,30 @@ describe("DesktopEnvironment", () => {
     }),
   );
 
+  it.effect("defaults production identity and state to custom app locations", () =>
+    Effect.gen(function* () {
+      const environment = yield* makeEnvironment();
+
+      assert.equal(environment.baseDir, "/Users/alice/.t3code-custom");
+      assert.equal(environment.stateDir, "/Users/alice/.t3code-custom/userdata");
+      assert.equal(environment.userDataDirName, "t3code-custom");
+      assert.equal(environment.legacyUserDataDirName, "T3 Code Custom");
+      assert.equal(environment.appUserModelId, "com.vdoshi.t3code.custom");
+      assert.equal(environment.displayName, "T3 Code Custom");
+    }),
+  );
+
   it.effect("uses a configured app user model id override", () =>
     Effect.gen(function* () {
       const environment = yield* makeEnvironment(
         {},
         {
-          T3CODE_DESKTOP_APP_USER_MODEL_ID: " com.t3tools.t3code.dev.local ",
+          T3CODE_DESKTOP_APP_USER_MODEL_ID: " com.vdoshi.t3code.custom.dev.local ",
           VITE_DEV_SERVER_URL: "http://localhost:5173",
         },
       );
 
-      assert.equal(environment.appUserModelId, "com.t3tools.t3code.dev.local");
+      assert.equal(environment.appUserModelId, "com.vdoshi.t3code.custom.dev.local");
     }),
   );
 

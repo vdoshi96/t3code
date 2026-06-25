@@ -7,6 +7,11 @@ export function formatAppDisplayName(input: {
   return `${input.baseName} (${input.stageLabel})`;
 }
 
+export function formatT3WordmarkSuffix(baseName: string): string {
+  const trimmed = baseName.trim();
+  return trimmed.startsWith("T3 ") ? trimmed.slice("T3 ".length) : trimmed;
+}
+
 export function resolveServerBackedAppStageLabel(input: {
   readonly primaryServerVersion: string | null | undefined;
   readonly fallbackStageLabel: string;

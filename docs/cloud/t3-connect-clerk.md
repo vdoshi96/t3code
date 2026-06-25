@@ -134,6 +134,16 @@ Clerk instance should only need `t3code-dev://app`; the production Clerk instanc
 `t3code://app`. `@clerk/electron` owns the native request adapter, encrypted Clerk token persistence,
 external-browser OAuth transport, and callback delivery for initial sign-in and linked-account flows.
 
+For the custom fork, use the custom schemes instead of the official schemes:
+
+```text
+t3code-custom-dev://app/
+t3code-custom://app/
+```
+
+The custom development launcher uses `t3code-custom-dev://app`, while the packaged
+`T3 Code Custom.app` registers only `t3code-custom://app`.
+
 There is currently no Dashboard UI for `allowed_origins`. Preserve any existing entries and update
 the instance through the Backend API:
 
@@ -143,6 +153,9 @@ curl -X PATCH https://api.clerk.com/v1/instance \
   -H "Authorization: Bearer $CLERK_SECRET_KEY" \
   -d '{"allowed_origins":["t3code://app"]}'
 ```
+
+For the custom fork, patch the relevant instance with `t3code-custom://app` for
+production or `t3code-custom-dev://app` for development.
 
 Never put `CLERK_SECRET_KEY` in the desktop app, a client-facing environment file, or a build
 artifact.
@@ -160,6 +173,10 @@ The production macOS bundle ID is `com.t3tools.t3code`. To enable native passkey
 4. Confirm Clerk serves `https://<frontend-api>/.well-known/apple-app-site-association` and that
    `webcredentials.apps` contains `<TEAM_ID>.com.t3tools.t3code`.
 5. Set the local or CI signing configuration described below.
+
+For the custom fork, use `com.vdoshi.t3code.custom` for the packaged app instead
+of `com.t3tools.t3code`. The AASA `webcredentials.apps` entry should contain
+`<TEAM_ID>.com.vdoshi.t3code.custom`.
 
 For a local signed build, add these values to `.env.local` or export them before invoking the
 desktop artifact command:
