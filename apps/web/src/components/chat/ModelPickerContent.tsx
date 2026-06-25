@@ -457,6 +457,14 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     },
     [favorites, filteredModelKeys, isSearching, selectedInstanceId, updateSettings],
   );
+  const modelListExtraData = useMemo(
+    () => ({
+      favoritesSet,
+      isSearching,
+      selectedInstanceId,
+    }),
+    [favoritesSet, isSearching, selectedInstanceId],
+  );
   const updateModelListScrollFades = useCallback(() => {
     const scrollElement = modelListRef.current?.getScrollableNode();
     if (!(scrollElement instanceof HTMLElement)) {
@@ -644,7 +652,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                 <LegendList<string>
                   ref={modelListRef}
                   data={filteredModelKeys}
-                  extraData={favoritesSet}
+                  extraData={modelListExtraData}
                   keyExtractor={(modelKey) => modelKey}
                   renderItem={({ item: modelKey, index }) => {
                     const model = filteredModelByKey.get(modelKey);

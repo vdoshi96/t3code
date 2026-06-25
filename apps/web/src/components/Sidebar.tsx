@@ -70,7 +70,8 @@ import {
   type SidebarThreadSortOrder,
 } from "@t3tools/contracts/settings";
 import { isElectron } from "../env";
-import { APP_STAGE_LABEL } from "../branding";
+import { APP_BASE_NAME, APP_STAGE_LABEL } from "../branding";
+import { formatT3WordmarkSuffix } from "../branding.logic";
 import { useOpenPrLink } from "../lib/openPullRequestLink";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isMacPlatform } from "../lib/utils";
@@ -2663,6 +2664,7 @@ const SidebarChromeHeader = memo(function SidebarChromeHeader({
 
 function SidebarBrand() {
   const stageLabel = useSidebarStageLabel();
+  const wordmarkSuffix = formatT3WordmarkSuffix(APP_BASE_NAME);
 
   return (
     <Link
@@ -2672,7 +2674,7 @@ function SidebarBrand() {
     >
       <T3Wordmark />
       <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
-        Code
+        {wordmarkSuffix}
       </span>
       <span className="sidebar-brand-stage shrink-0 items-center whitespace-nowrap rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
         {stageLabel}
