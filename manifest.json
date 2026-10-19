@@ -1,0 +1,18 @@
+{
+  "baselineCommit": "48b486bd73855c109735e84337735658700b0599",
+  "fixCommit": "2494c78d02fb1f706a4a0bdece3ac077af38f4d0",
+  "baselineSourceSha256": "1b6a57f4523e703ed22b1915c9c6b2805f7678b27e86155cb844c931e6e0df4b",
+  "fixSourceSha256": "e10f0aea87c06be0eb7a852c2a72295e55034940542cbbdcf837859ed31afbe0",
+  "device": "iPhone 17 Pro",
+  "runtime": "iOS 27.0",
+  "xcode": "27.0",
+  "harness": "Production native editor with stubbed Expo bridge; not the full Expo app",
+  "softwareKeyboardVerified": false,
+  "actualDictationVerified": false,
+  "regressionChecks": {
+    "baselinePassed": 14,
+    "fixedPassed": 26,
+    "total": 26
+  },
+  "mobileUnitTestsPassed": 52
+}

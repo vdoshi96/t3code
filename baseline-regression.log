@@ -1,0 +1,13 @@
+FAIL: Reveal the caret at the end of a long draft
+FAIL: Reveal caret after controlled insertion
+FAIL: Reveal an explicitly moved caret
+FAIL: Reveal a caret moved to the end
+FAIL: Reveal caret after native insertion
+FAIL: Reveal text inserted while collapsed after expansion
+FAIL: Reveal the caret at the end of a long draft
+FAIL: Reveal caret after controlled insertion
+FAIL: Reveal an explicitly moved caret
+FAIL: Reveal a caret moved to the end
+FAIL: Reveal caret after native insertion
+FAIL: Reveal text inserted while collapsed after expansion
+14/26 composer scroll checks passed
